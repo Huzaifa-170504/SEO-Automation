@@ -218,3 +218,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# SEO Automation runtime and recruiter demo
+.env.*
+!.env.example
+.venv/
+data/*.db
+data/*.sqlite3
+data/*.pid
+data/*.json
+data/*.pdf
+logs/
+data/reports/
+.test-tmp/
+web/node_modules/
+web/dist/
+web/.env
+web/.env.*
+!web/.env.example
+.vercel/
+supabase/.branches/
+supabase/.temp/

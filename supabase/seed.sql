@@ -1,0 +1,1 @@
+-- Phase 1 has no production seed data. The recruiter UI ships sample data statically.
