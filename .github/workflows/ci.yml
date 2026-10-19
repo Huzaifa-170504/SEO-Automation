@@ -19,7 +19,7 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: python -m pytest -q
-      - run: python -m ruff check app/web app/agents/website_auditor.py tests/test_web_api.py tests/test_web_settings.py tests/test_website_auditor_reliability.py main.py
+      - run: python -m ruff check app/web app/agents/website_auditor.py tests/test_web_api.py tests/test_web_settings.py tests/test_website_auditor_reliability.py main.py --no-cache
 
   frontend:
     runs-on: ubuntu-latest

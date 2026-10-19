@@ -236,5 +236,6 @@ web/.env
 web/.env.*
 !web/.env.example
 .vercel/
+.release-source/
 supabase/.branches/
 supabase/.temp/
