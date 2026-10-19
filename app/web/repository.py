@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict, deque
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 from uuid import UUID
 
@@ -52,7 +52,7 @@ class MemoryAuditRepository:
     async def enforce_rate_limit(
         self, client_hash: str, *, limit: int, window: timedelta
     ) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         cutoff = now - window
         async with self._lock:
             requests = self._requests[client_hash]
@@ -80,7 +80,7 @@ class MemoryAuditRepository:
             raise AuditNotFoundError
         result, expected_hash, _ = record
         if expected_hash != access_token_hash or result.expires_at <= datetime.now(
-            timezone.utc
+            UTC
         ):
             raise AuditNotFoundError
         return result.model_copy(deep=True)
@@ -172,7 +172,7 @@ class SupabaseAuditRepository:
             params={
                 "id": f"eq.{audit_id}",
                 "share_token_hash": f"eq.{access_token_hash}",
-                "expires_at": f"gt.{datetime.now(timezone.utc).isoformat()}",
+                "expires_at": f"gt.{datetime.now(UTC).isoformat()}",
                 "select": "report",
                 "limit": "1",
             },

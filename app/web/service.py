@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import secrets
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from app.agents.manager import AgentManager
@@ -59,7 +59,7 @@ class DemoAuditService:
 
         audit_id = uuid4()
         access_token = secrets.token_urlsafe(32)
-        created_at = datetime.now(timezone.utc)
+        created_at = datetime.now(UTC)
         expires_at = created_at + timedelta(hours=self.settings.demo_retention_hours)
         severity_counts = Counter(str(item.severity) for item in issues)
         warnings = []

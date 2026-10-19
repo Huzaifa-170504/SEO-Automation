@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from app.web.models import AuditSummary, DemoAuditResult, DemoIssue, DemoPage
 
 
 def build_sample_audit() -> DemoAuditResult:
-    created = datetime(2026, 10, 19, 12, 0, tzinfo=timezone.utc)
+    created = datetime(2026, 10, 19, 12, 0, tzinfo=UTC)
     return DemoAuditResult(
         audit_id=UUID("83c6eb08-e390-45fb-a291-a85c748fe935"),
         website_url="https://example.com/",
