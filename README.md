@@ -92,10 +92,9 @@ npm.cmd run build
 1. Confirm the migration under `supabase/migrations/` is present in the intended Supabase project.
 2. Add the backend environment variables from `.env.example` to Vercel.
 3. Deploy the repository as a Vercel FastAPI project using `main.py`.
-4. Set the GitHub repository variable `VITE_API_BASE_URL` to the deployed Vercel origin.
-5. Enable GitHub Pages with **GitHub Actions** as its source.
-6. Run the `Deploy recruiter demo` workflow.
-7. Verify `/api/health`, one live 15-page audit, protected result retrieval, and PDF download.
+4. Confirm `VITE_API_BASE_URL` in the Pages workflow points to the stable Vercel production alias.
+5. Run the `Deploy recruiter demo` workflow; it enables GitHub Pages with **GitHub Actions** as its source.
+6. Verify `/api/health`, one live 15-page audit, protected result retrieval, and PDF download.
 
 The migration, Vercel deployment, GitHub Pages publication, and external credentials must be verified independently; local tests do not prove those external steps succeeded.
 

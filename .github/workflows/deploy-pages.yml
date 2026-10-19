@@ -24,7 +24,7 @@ jobs:
       run:
         working-directory: web
     env:
-      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+      VITE_API_BASE_URL: https://seo-automation-weld.vercel.app
       VITE_BASE_PATH: /SEO-Automation/
     steps:
       - uses: actions/checkout@v6
@@ -33,12 +33,12 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - name: Require deployed API URL
-        run: test -n "$VITE_API_BASE_URL" || (echo "Set the VITE_API_BASE_URL repository variable." && exit 1)
       - run: npm ci
       - run: npm test
       - run: npm run build
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v4
         with:
           path: web/dist
