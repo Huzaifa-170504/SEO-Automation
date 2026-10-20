@@ -9,7 +9,7 @@ data/
 logs/
 scripts/
 tests/
-web/
+/web/
 __pycache__/
 *.pyc
 *.sqlite
