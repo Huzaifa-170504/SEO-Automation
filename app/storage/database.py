@@ -17,10 +17,12 @@ from app.storage.models import Base
 
 load_dotenv()
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite+aiosqlite:///./data/seo_automation.db",
+DEFAULT_DATABASE_URL = (
+    "sqlite+aiosqlite:////tmp/seo_automation.db"
+    if os.getenv("VERCEL")
+    else "sqlite+aiosqlite:///./data/seo_automation.db"
 )
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
 
 # Ensure the local data directory exists for SQLite.
 if DATABASE_URL.startswith("sqlite+aiosqlite:///./"):
