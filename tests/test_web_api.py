@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 import app.web.service as service_module
 from app.web.api import create_app
+from app.web.models import DemoContentResult
 from app.web.repository import MemoryAuditRepository
 from app.web.settings import WebSettings
 
@@ -43,6 +46,49 @@ class FakeAuditor:
                 }
             ],
         }
+
+
+class FakeContentService:
+    def __init__(self) -> None:
+        self.result = DemoContentResult(
+            content_id=uuid4(),
+            access_token="content-token-that-is-long-enough",
+            audit_id=uuid4(),
+            website_url="https://example.com/",
+            primary_keyword="seo automation",
+            secondary_keywords=["website audit"],
+            competitor_urls=["https://competitor.example/guide"],
+            topic="SEO automation guide",
+            status="approved",
+            created_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(hours=24),
+            research={"competitors": []},
+            strategy={"recommended_title": "SEO automation guide"},
+            article={"title": "SEO automation guide", "body": "Evidence-led body"},
+            review={"status": "approved", "overall_score": 91},
+            revisions_used=0,
+        )
+
+    async def run(self, payload, *, client_hash: str) -> DemoContentResult:
+        assert len(client_hash) == 64
+        return self.result.model_copy(
+            update={
+                "audit_id": payload.audit_id,
+                "primary_keyword": payload.primary_keyword,
+                "secondary_keywords": payload.secondary_keywords,
+                "competitor_urls": payload.competitor_urls,
+            }
+        )
+
+    async def get(self, content_id, token: str) -> DemoContentResult:
+        assert content_id == self.result.content_id
+        assert token == self.result.access_token
+        return self.result.model_copy(update={"access_token": None})
+
+    async def get_pdf(self, content_id, token: str) -> bytes:
+        assert content_id == self.result.content_id
+        assert token == self.result.access_token
+        return b"%PDF-content"
 
 
 def settings(**overrides: Any) -> WebSettings:
@@ -136,3 +182,39 @@ def test_honeypot_rejects_automated_submission() -> None:
         )
 
     assert response.status_code == 422
+
+
+def test_content_workflow_accepts_keywords_competitors_and_serves_pdf() -> None:
+    fake = FakeContentService()
+    app = create_app(settings(), MemoryAuditRepository(), fake)
+    audit_id = str(uuid4())
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/v1/content",
+            json={
+                "audit_id": audit_id,
+                "audit_token": "audit-token-that-is-long-enough",
+                "primary_keyword": " SEO automation ",
+                "secondary_keywords": ["website audit", "website audit"],
+                "competitor_urls": ["https://competitor.example/guide"],
+            },
+            headers={"x-forwarded-for": "203.0.113.25"},
+        )
+        body = created.json()
+        fetched = client.get(
+            f"/api/v1/content/{fake.result.content_id}",
+            headers={"X-Content-Token": fake.result.access_token},
+        )
+        report = client.get(
+            f"/api/v1/content/{fake.result.content_id}/report",
+            headers={"X-Content-Token": fake.result.access_token},
+        )
+
+    assert created.status_code == 201
+    assert body["audit_id"] == audit_id
+    assert body["primary_keyword"] == "SEO automation"
+    assert body["secondary_keywords"] == ["website audit"]
+    assert fetched.status_code == 200
+    assert fetched.json()["access_token"] is None
+    assert report.status_code == 200
+    assert report.content.startswith(b"%PDF")

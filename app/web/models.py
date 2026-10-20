@@ -74,3 +74,54 @@ class HealthResponse(BaseModel):
     service: str = "seo-automation-api"
     persistence: Literal["memory", "supabase"]
     demo_max_pages: int
+
+
+class DemoContentRequest(BaseModel):
+    audit_id: UUID
+    audit_token: str = Field(min_length=20, max_length=256)
+    primary_keyword: str = Field(min_length=2, max_length=200)
+    secondary_keywords: list[str] = Field(min_length=1, max_length=8)
+    competitor_urls: list[str] = Field(default_factory=list, max_length=2)
+    topic: str | None = Field(default=None, min_length=3, max_length=300)
+    company: str = Field(default="", max_length=0, exclude=True)
+
+    @field_validator("primary_keyword", "topic", mode="before")
+    @classmethod
+    def normalize_text(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        return " ".join(str(value).split())
+
+    @field_validator("secondary_keywords")
+    @classmethod
+    def normalize_keywords(cls, value: list[str]) -> list[str]:
+        cleaned = list(
+            dict.fromkeys(" ".join(item.split()) for item in value if item.strip())
+        )
+        if not cleaned or any(len(item) > 200 for item in cleaned):
+            raise ValueError("Enter 1 to 8 valid secondary keywords.")
+        return cleaned
+
+    @field_validator("competitor_urls", mode="before")
+    @classmethod
+    def normalize_competitors(cls, value: Any) -> list[str]:
+        return list(dict.fromkeys(normalize_url(str(item)) for item in (value or [])))
+
+
+class DemoContentResult(BaseModel):
+    content_id: UUID
+    access_token: str | None = None
+    audit_id: UUID
+    website_url: str
+    primary_keyword: str
+    secondary_keywords: list[str]
+    competitor_urls: list[str]
+    topic: str
+    status: Literal["approved", "human_review_required"]
+    created_at: datetime
+    expires_at: datetime
+    research: dict[str, Any]
+    strategy: dict[str, Any]
+    article: dict[str, Any]
+    review: dict[str, Any]
+    revisions_used: int = 0

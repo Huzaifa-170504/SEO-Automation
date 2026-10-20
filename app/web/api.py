@@ -13,10 +13,19 @@ from fastapi import FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.web.models import DemoAuditRequest, DemoAuditResult, HealthResponse
+from app.exceptions import ModelProviderError
+from app.web.content_service import ContentExecutionTimeoutError, DemoContentService
+from app.web.models import (
+    DemoAuditRequest,
+    DemoAuditResult,
+    DemoContentRequest,
+    DemoContentResult,
+    HealthResponse,
+)
 from app.web.repository import (
     AuditNotFoundError,
     AuditRepository,
+    ContentNotFoundError,
     MemoryAuditRepository,
     RateLimitExceededError,
     SupabaseAuditRepository,
@@ -41,10 +50,12 @@ def _create_repository(settings: WebSettings) -> AuditRepository:
 def create_app(
     settings: WebSettings | None = None,
     repository: AuditRepository | None = None,
+    content_service: DemoContentService | None = None,
 ) -> FastAPI:
     settings = settings or get_web_settings()
     repository = repository or _create_repository(settings)
     service = DemoAuditService(repository, settings)
+    content_service = content_service or DemoContentService(repository, settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -58,12 +69,13 @@ def create_app(
     )
     application.state.settings = settings
     application.state.audit_service = service
+    application.state.content_service = content_service
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.frontend_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "X-Audit-Token"],
+        allow_headers=["Content-Type", "X-Audit-Token", "X-Content-Token"],
     )
 
     @application.middleware("http")
@@ -167,6 +179,96 @@ def create_app(
             media_type="application/pdf",
             headers={
                 "Content-Disposition": f'attachment; filename="seo-audit-{audit_id}.pdf"'
+            },
+        )
+
+    @application.post(
+        "/api/v1/content",
+        response_model=DemoContentResult,
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_content(
+        payload: DemoContentRequest, request: Request
+    ) -> DemoContentResult:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        client_ip = forwarded.split(",", 1)[0].strip() or (
+            request.client.host if request.client else "unknown"
+        )
+        try:
+            return await content_service.run(
+                payload,
+                client_hash=hash_client(
+                    client_ip, settings.rate_limit_salt or "local-development-only"
+                ),
+            )
+        except AuditNotFoundError as exc:
+            raise HTTPException(
+                status_code=404, detail="Audit not found or expired. Run a new audit first."
+            ) from exc
+        except RateLimitExceededError as exc:
+            raise HTTPException(
+                status_code=429,
+                detail="Content demo limit reached. Please try again in one hour.",
+                headers={"Retry-After": "3600"},
+            ) from exc
+        except ContentExecutionTimeoutError as exc:
+            raise HTTPException(
+                status_code=504,
+                detail="Content generation exceeded the public demo time limit.",
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except ModelProviderError as exc:
+            logger.exception(
+                "demo_content_model_failure",
+                extra={"request_id": request.state.request_id},
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="The writing model is temporarily unavailable. Please try again.",
+            ) from exc
+        except httpx.HTTPError as exc:
+            logger.exception(
+                "demo_content_external_failure",
+                extra={"request_id": request.state.request_id},
+            )
+            raise HTTPException(
+                status_code=502,
+                detail="The content workflow could not reach a required external resource.",
+            ) from exc
+
+    @application.get("/api/v1/content/{content_id}", response_model=DemoContentResult)
+    async def get_content(
+        content_id: UUID,
+        token: Annotated[
+            str, Header(alias="X-Content-Token", min_length=20, max_length=256)
+        ],
+    ) -> DemoContentResult:
+        try:
+            return await content_service.get(content_id, token)
+        except ContentNotFoundError as exc:
+            raise HTTPException(
+                status_code=404, detail="Content result not found or expired."
+            ) from exc
+
+    @application.get("/api/v1/content/{content_id}/report")
+    async def get_content_report(
+        content_id: UUID,
+        token: Annotated[
+            str, Header(alias="X-Content-Token", min_length=20, max_length=256)
+        ],
+    ) -> Response:
+        try:
+            content = await content_service.get_pdf(content_id, token)
+        except ContentNotFoundError as exc:
+            raise HTTPException(
+                status_code=404, detail="Content result not found or expired."
+            ) from exc
+        return Response(
+            content=content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="seo-content-{content_id}.pdf"'
             },
         )
 

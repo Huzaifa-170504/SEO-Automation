@@ -5,6 +5,7 @@
     "main.py": {
       "maxDuration": 240,
       "regions": ["hnd1"],
+      "includeFiles": "app/**",
       "excludeFiles": "{tests/**,web/**,data/**,logs/**,scripts/**,.test-tmp/**,.pytest_cache/**,.ruff_cache/**}"
     }
   }

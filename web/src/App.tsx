@@ -1,8 +1,9 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { AuditResults } from "./AuditResults";
-import { runAudit } from "./api";
+import { ContentStudio } from "./ContentStudio";
+import { downloadContentReport, downloadReport, getHealth, runAudit } from "./api";
 import { sampleAudit } from "./sample";
-import type { DemoAuditResult } from "./types";
+import type { DemoAuditResult, DemoContentResult, HealthResponse } from "./types";
 
 const githubUrl = "https://github.com/Huzaifa-170504/SEO-Automation";
 
@@ -12,32 +13,64 @@ export default function App() {
   const [isSample, setIsSample] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [content, setContent] = useState<DemoContentResult | null>(null);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [cancelSignal, setCancelSignal] = useState(0);
+  const auditController = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    void getHealth().then(setHealth).catch(() => setHealth(null));
+  }, []);
 
   async function submitAudit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setIsRunning(true);
+    auditController.current = new AbortController();
     try {
-      const audit = await runAudit(websiteUrl);
+      const audit = await runAudit(websiteUrl, auditController.current.signal);
       setResult(audit);
       setIsSample(false);
+      setContent(null);
       window.setTimeout(() => document.querySelector("#results")?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The audit could not be completed.");
+      if (!(caught instanceof DOMException && caught.name === "AbortError")) {
+        setError(caught instanceof Error ? caught.message : "The audit could not be completed.");
+      }
     } finally {
       setIsRunning(false);
+      auditController.current = null;
     }
+  }
+
+  function cancelCurrentWork() {
+    auditController.current?.abort();
+    setIsRunning(false);
+    setError("The current audit request was cancelled in this browser.");
+    setCancelSignal((value) => value + 1);
   }
 
   return (
     <>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="SEO Automation home"><span className="brand-mark">H</span><span>SEO / AUTOMATION</span></a>
-        <nav aria-label="Primary navigation"><a href="#workflow">Workflow</a><a href="#results">Evidence</a><a href="#engineering">Engineering</a></nav>
+        <nav aria-label="Primary navigation"><a href="#try-it">Audit</a><a href="#content">Content</a><a href="#reports">Reports</a><a href="#status">Status</a></nav>
         <a className="github-link" href={githubUrl} target="_blank" rel="noreferrer">View source <span>↗</span></a>
       </header>
 
       <main id="top">
+        <nav className="command-menu" id="help" aria-label="Automation commands">
+          <a href="#try-it"><code>/audit</code><span>Audit website</span></a>
+          <a href="#results"><code>/audits</code><span>Current result</span></a>
+          <a href="#results"><code>/report</code><span>Audit PDF</span></a>
+          <a href="#content"><code>/content</code><span>Create article</span></a>
+          <a href="#content-result"><code>/review</code><span>Review output</span></a>
+          <a href="#content-result"><code>/contentjobs</code><span>Current job</span></a>
+          <a href="#reports"><code>/contentresult</code><span>Content PDF</span></a>
+          <a href="#status"><code>/status</code><span>System status</span></a>
+          <a href="#help"><code>/help</code><span>All commands</span></a>
+          <button type="button" onClick={cancelCurrentWork}><code>/cancel</code><span>Cancel request</span></button>
+        </nav>
         <section className="hero section-shell">
           <div className="hero-copy">
             <p className="eyebrow"><span className="status-dot" /> Live engineering portfolio</p>
@@ -86,8 +119,35 @@ export default function App() {
 
         <AuditResults result={result} isSample={isSample} />
 
+        <ContentStudio audit={isSample ? null : result} content={content} onContent={setContent} cancelSignal={cancelSignal} />
+
+        <section className="reports section-shell" id="reports" aria-labelledby="reports-title">
+          <div className="section-kicker"><span>04</span> Reports and runtime</div>
+          <div className="reports-grid">
+            <div>
+              <p className="eyebrow">Download center</p>
+              <h2 id="reports-title">Keep the evidence.</h2>
+              <p className="lede">Live results are private, token-protected, and retained for 24 hours. PDF exports make the audit and content workflow easy to evaluate offline.</p>
+              <div className="report-actions">
+                <button className="button button-secondary" type="button" disabled={isSample} onClick={() => void downloadReport(result)}>Download audit PDF</button>
+                <button className="button button-secondary" type="button" disabled={!content} onClick={() => content && void downloadContentReport(content)}>Download content PDF</button>
+              </div>
+            </div>
+            <div className="status-card" id="status">
+              <div><span className={health ? "status-dot" : "status-dot status-offline"} /><small>API STATUS</small></div>
+              <strong>{health ? "Connected" : "Unavailable"}</strong>
+              <dl>
+                <div><dt>Persistence</dt><dd>{health?.persistence ?? "Not reported"}</dd></div>
+                <div><dt>Audit limit</dt><dd>{health ? `${health.demo_max_pages} pages` : "Not reported"}</dd></div>
+                <div><dt>Current audit</dt><dd>{isSample ? "Sample" : "Completed"}</dd></div>
+                <div><dt>Content job</dt><dd>{content?.status.replaceAll("_", " ") ?? "Not started"}</dd></div>
+              </dl>
+            </div>
+          </div>
+        </section>
+
         <section className="engineering section-shell" id="engineering" aria-labelledby="engineering-title">
-          <div className="section-kicker"><span>03</span> Under the hood</div>
+          <div className="section-kicker"><span>05</span> Under the hood</div>
           <div className="engineering-grid">
             <div><p className="eyebrow">Built beyond the happy path</p><h2 id="engineering-title">A demo architecture with production instincts.</h2><p className="lede">The project started as a Telegram automation workflow. The web layer reuses the same domain services while keeping hosting-specific behavior isolated.</p><a className="button button-secondary" href={githubUrl} target="_blank" rel="noreferrer">Read the code on GitHub ↗</a></div>
             <div className="decision-list">

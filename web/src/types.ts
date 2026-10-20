@@ -47,3 +47,38 @@ export interface DemoAuditResult {
   pages: DemoPage[];
   warnings: string[];
 }
+
+export interface DemoContentRequest {
+  audit_id: string;
+  audit_token: string;
+  primary_keyword: string;
+  secondary_keywords: string[];
+  competitor_urls: string[];
+  topic?: string;
+}
+
+export interface DemoContentResult {
+  content_id: string;
+  access_token: string | null;
+  audit_id: string;
+  website_url: string;
+  primary_keyword: string;
+  secondary_keywords: string[];
+  competitor_urls: string[];
+  topic: string;
+  status: "approved" | "human_review_required";
+  created_at: string;
+  expires_at: string;
+  research: Record<string, unknown>;
+  strategy: Record<string, unknown>;
+  article: Record<string, unknown>;
+  review: Record<string, unknown>;
+  revisions_used: number;
+}
+
+export interface HealthResponse {
+  status: "ok";
+  service: string;
+  persistence: "memory" | "supabase";
+  demo_max_pages: number;
+}
