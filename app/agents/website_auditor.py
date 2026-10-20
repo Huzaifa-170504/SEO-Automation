@@ -99,8 +99,14 @@ class WebsiteAuditor:
             if not response.is_redirect:
                 return response
             location = response.headers.get("location")
-            next_url = self.normalize_url(urljoin(current_url, location or ""))
-            if not next_url:
+            next_url = urldefrag(urljoin(current_url, location or ""))[0].strip()
+            parsed = urlparse(next_url)
+            if (
+                parsed.scheme not in {"http", "https"}
+                or not parsed.hostname
+                or parsed.username
+                or parsed.password
+            ):
                 raise ValueError("Website returned an invalid redirect target.")
             current_url = next_url
         raise ValueError("Website exceeded the maximum redirect count.")

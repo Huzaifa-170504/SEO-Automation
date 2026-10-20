@@ -86,6 +86,47 @@ async def test_auditor_validates_redirect_destination_before_following(
     assert any("public network addresses" in item["error"] for item in report["errors"])
 
 
+@pytest.mark.asyncio
+async def test_auditor_preserves_trailing_slash_redirect_destination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requested: list[str] = []
+
+    async def allow_public_url(*args, **kwargs) -> None:
+        return None
+
+    class RedirectClient:
+        async def get(self, url: str) -> httpx.Response:
+            requested.append(str(url))
+            request = httpx.Request("GET", str(url))
+            if str(url).endswith("/"):
+                return httpx.Response(200, request=request, text="ok")
+            return httpx.Response(
+                301,
+                request=request,
+                headers={"location": f"{url}/"},
+            )
+
+    monkeypatch.setattr(
+        website_auditor_module,
+        "validate_public_http_url",
+        allow_public_url,
+    )
+    auditor = WebsiteAuditor(delay_seconds=0)
+    auditor.allowed_hosts = {"example.com"}
+
+    response = await auditor._safe_get(
+        RedirectClient(),
+        "https://example.com/guide",
+    )
+
+    assert response.status_code == 200
+    assert requested == [
+        "https://example.com/guide",
+        "https://example.com/guide/",
+    ]
+
+
 def test_audit_request_has_safe_bounds_and_url_normalization() -> None:
     request = WebsiteAuditRequest(website_url="Example.com")
     assert request.website_url == "https://example.com/"
