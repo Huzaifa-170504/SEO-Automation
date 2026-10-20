@@ -5,7 +5,8 @@ Asynchronous Gemini API client for SEO-AUTOMATION.
 from __future__ import annotations
 
 import os
-from typing import Any
+from types import TracebackType
+from typing import Any, Self
 
 from dotenv import load_dotenv
 from google import genai
@@ -30,7 +31,7 @@ class GeminiClient:
 
         self.model = model or os.getenv(
             "GEMINI_MODEL",
-            "gemini-2.5-flash",
+            "gemini-3.8-flash",
         )
 
         self.timeout = timeout
@@ -116,14 +117,14 @@ class GeminiClient:
         """Close the asynchronous Gemini client."""
         await self.client.aio.aclose()
 
-    async def __aenter__(self) -> GeminiClient:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(
         self,
-        exc_type: Any,
-        exc_value: Any,
-        traceback: Any,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         await self.close()
 

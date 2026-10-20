@@ -173,7 +173,7 @@ async def test_generate_records_token_usage(
 
     assert client.last_usage == {
         "provider": "gemini",
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.8-flash",
         "input_tokens": 12,
         "output_tokens": 18,
         "total_tokens": 30,
@@ -256,7 +256,7 @@ async def test_generate_handles_missing_usage_metadata(
 
     assert client.last_usage == {
         "provider": "gemini",
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.8-flash",
         "input_tokens": 0,
         "output_tokens": 0,
         "total_tokens": 0,
@@ -328,7 +328,7 @@ def test_gemini_client_defaults_to_expected_model(
 
     client = GeminiClient()
 
-    assert client.model == "gemini-2.5-flash"
+    assert client.model == "gemini-3.8-flash"
 
 
 @pytest.mark.asyncio
